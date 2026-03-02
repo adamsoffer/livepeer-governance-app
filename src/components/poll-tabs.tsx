@@ -1,7 +1,6 @@
 "use client";
 
-import { type ReactNode } from "react";
-import Link from "next/link";
+import { type ReactNode, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -18,18 +17,16 @@ function Tab({
   label,
   count,
   active,
-  href,
+  onClick,
 }: {
   label: string;
   count?: number;
   active: boolean;
-  href: string;
+  onClick: () => void;
 }) {
   return (
-    <Link
-      href={href}
-      scroll={false}
-      replace
+    <button
+      onClick={onClick}
       className={`relative inline-flex items-center gap-1.5 px-4 py-2.5 text-[13px] font-medium transition-colors ${
         active
           ? "text-text-primary"
@@ -51,7 +48,7 @@ function Tab({
       {active && (
         <span className="absolute inset-x-0 bottom-0 h-px bg-lp-green" />
       )}
-    </Link>
+    </button>
   );
 }
 
@@ -72,12 +69,25 @@ export function PollTabs({
 }) {
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab");
-  const activeTab: TabKey =
+  const initialTab: TabKey =
     tabParam === "votes"
       ? "votes"
       : tabParam === "non-voters"
         ? "non-voters"
         : "overview";
+
+  const [activeTab, setActiveTab] = useState<TabKey>(initialTab);
+
+  const handleTabClick = (key: TabKey) => {
+    setActiveTab(key);
+    const url = new URL(window.location.href);
+    if (key === "overview") {
+      url.searchParams.delete("tab");
+    } else {
+      url.searchParams.set("tab", key);
+    }
+    window.history.replaceState(null, "", url.toString());
+  };
 
   return (
     <div>
@@ -94,12 +104,12 @@ export function PollTabs({
                   : undefined
             }
             active={activeTab === tab.key}
-            href={tab.key === "overview" ? "?" : `?tab=${tab.key}`}
+            onClick={() => handleTabClick(tab.key)}
           />
         ))}
       </nav>
 
-      {activeTab === "overview" && (
+      <div hidden={activeTab !== "overview"}>
         <div className="space-y-6">
           {resultsCard}
           {proposalBody && (
@@ -112,11 +122,11 @@ export function PollTabs({
             </div>
           )}
         </div>
-      )}
+      </div>
 
-      {activeTab === "votes" && votesContent}
+      <div hidden={activeTab !== "votes"}>{votesContent}</div>
 
-      {activeTab === "non-voters" && nonVotersContent}
+      <div hidden={activeTab !== "non-voters"}>{nonVotersContent}</div>
     </div>
   );
 }
