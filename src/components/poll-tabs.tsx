@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { type ReactNode } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -14,15 +16,17 @@ type TabKey = (typeof tabs)[number]["key"];
 function Tab({
   label,
   active,
-  onClick,
+  href,
 }: {
   label: string;
   active: boolean;
-  onClick: () => void;
+  href: string;
 }) {
   return (
-    <button
-      onClick={onClick}
+    <Link
+      href={href}
+      scroll={false}
+      replace
       className={`relative px-4 py-2.5 text-[13px] font-medium transition-colors ${
         active
           ? "text-text-primary"
@@ -33,7 +37,7 @@ function Tab({
       {active && (
         <span className="absolute inset-x-0 bottom-0 h-px bg-lp-green" />
       )}
-    </button>
+    </Link>
   );
 }
 
@@ -46,7 +50,10 @@ export function PollTabs({
   proposalBody: string | null;
   resultsCard: ReactNode;
 }) {
-  const [activeTab, setActiveTab] = useState<TabKey>("overview");
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  const activeTab: TabKey =
+    tabParam === "votes" ? "votes" : "overview";
 
   return (
     <div>
@@ -56,7 +63,7 @@ export function PollTabs({
             key={tab.key}
             label={tab.label}
             active={activeTab === tab.key}
-            onClick={() => setActiveTab(tab.key)}
+            href={tab.key === "overview" ? "?" : `?tab=${tab.key}`}
           />
         ))}
       </nav>
