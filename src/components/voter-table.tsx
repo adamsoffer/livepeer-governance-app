@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { Address } from "@/components/ui/address";
 import { formatStake } from "@/lib/utils";
+import { useEnsProfiles } from "@/hooks/use-ens-profiles";
 import type { VoteWithStake } from "@/lib/graphql/types";
 
 type SortField = "stake" | "choice" | "voter" | "time";
@@ -19,16 +20,24 @@ function formatTimestamp(timestamp: number): string {
   return `${month}/${day}/${year} ${hours}:${minutes}`;
 }
 
+interface EnsProfile {
+  name: string | null;
+  avatar: string | null;
+}
+
 function VoteRow({
   vote,
   expanded,
   onToggle,
+  ensProfiles,
 }: {
   vote: VoteWithStake;
   expanded: boolean;
   onToggle: () => void;
+  ensProfiles: Map<string, EnsProfile>;
 }) {
   const hasOverrides = vote.delegatorOverrides.length > 0;
+  const profile = ensProfiles.get(vote.voter.toLowerCase());
 
   return (
     <>
@@ -38,7 +47,7 @@ function VoteRow({
             href={`/orchestrators/${vote.voter}`}
             className="hover:underline"
           >
-            <Address address={vote.voter} ensName={vote.ensName} ensAvatar={vote.ensAvatar} />
+            <Address address={vote.voter} ensName={profile?.name ?? vote.ensName} ensAvatar={profile?.avatar ?? vote.ensAvatar} />
           </Link>
           {hasOverrides && (
             <button
@@ -92,7 +101,9 @@ function VoteRow({
         </td>
       </tr>
       {expanded &&
-        vote.delegatorOverrides.map((override) => (
+        vote.delegatorOverrides.map((override) => {
+          const oProfile = ensProfiles.get(override.voter.toLowerCase());
+          return (
           <tr
             key={override.voter}
             className="bg-white/[0.04]"
@@ -104,8 +115,8 @@ function VoteRow({
               >
                 <Address
                   address={override.voter}
-                  ensName={override.ensName}
-                  ensAvatar={override.ensAvatar}
+                  ensName={oProfile?.name ?? override.ensName}
+                  ensAvatar={oProfile?.avatar ?? override.ensAvatar}
                 />
               </Link>
             </td>
@@ -132,7 +143,8 @@ function VoteRow({
               {override.timestamp ? formatTimestamp(override.timestamp) : "—"}
             </td>
           </tr>
-        ))}
+          );
+        })}
     </>
   );
 }
@@ -144,6 +156,20 @@ export function VoterTable({ votes }: { votes: VoteWithStake[] }) {
   const [expandedVoters, setExpandedVoters] = useState<Set<string>>(
     new Set()
   );
+
+  // Collect all addresses (voters + delegator overrides) for ENS resolution
+  const allAddresses = useMemo(() => {
+    const addrs: string[] = [];
+    for (const v of votes) {
+      addrs.push(v.voter);
+      for (const o of v.delegatorOverrides) {
+        addrs.push(o.voter);
+      }
+    }
+    return addrs;
+  }, [votes]);
+
+  const ensProfiles = useEnsProfiles(allAddresses);
 
   const toggleExpanded = (voter: string) => {
     setExpandedVoters((prev) => {
@@ -160,12 +186,15 @@ export function VoterTable({ votes }: { votes: VoteWithStake[] }) {
   const filtered = useMemo(() => {
     if (!search) return votes;
     const lower = search.toLowerCase();
-    return votes.filter(
-      (v) =>
+    return votes.filter((v) => {
+      const profile = ensProfiles.get(v.voter.toLowerCase());
+      const ensName = profile?.name ?? v.ensName;
+      return (
         v.voter.toLowerCase().includes(lower) ||
-        (v.ensName && v.ensName.toLowerCase().includes(lower))
-    );
-  }, [votes, search]);
+        (ensName && ensName.toLowerCase().includes(lower))
+      );
+    });
+  }, [votes, search, ensProfiles]);
 
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
@@ -177,16 +206,19 @@ export function VoterTable({ votes }: { votes: VoteWithStake[] }) {
         case "choice":
           cmp = a.choiceID.localeCompare(b.choiceID);
           break;
-        case "voter":
-          cmp = (a.ensName ?? a.voter).localeCompare(b.ensName ?? b.voter);
+        case "voter": {
+          const aName = ensProfiles.get(a.voter.toLowerCase())?.name ?? a.ensName ?? a.voter;
+          const bName = ensProfiles.get(b.voter.toLowerCase())?.name ?? b.ensName ?? b.voter;
+          cmp = aName.localeCompare(bName);
           break;
+        }
         case "time":
           cmp = (a.timestamp ?? 0) - (b.timestamp ?? 0);
           break;
       }
       return sortDir === "desc" ? -cmp : cmp;
     });
-  }, [filtered, sortField, sortDir]);
+  }, [filtered, sortField, sortDir, ensProfiles]);
 
   const handleSort = (field: SortField) => {
     if (field === sortField) {
@@ -275,6 +307,7 @@ export function VoterTable({ votes }: { votes: VoteWithStake[] }) {
                 vote={vote}
                 expanded={expandedVoters.has(vote.voter)}
                 onToggle={() => toggleExpanded(vote.voter)}
+                ensProfiles={ensProfiles}
               />
             ))}
             {sorted.length === 0 && (

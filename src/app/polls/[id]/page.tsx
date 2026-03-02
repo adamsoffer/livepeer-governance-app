@@ -11,7 +11,6 @@ import {
   parseRoundStakeResults,
 } from "@/lib/graphql/queries";
 import { resolveProposal } from "@/lib/ipfs";
-import { batchResolveEns } from "@/lib/ens";
 import {
   computePollStatus,
   computePercentages,
@@ -117,9 +116,8 @@ async function EnrichedVoterTable({ poll }: { poll: Poll }) {
     .filter((v) => !v.registeredTranscoder)
     .map((v) => v.voter);
 
-  const [transcoderStakes, ensProfiles, delegatorDelegates] = await Promise.all([
+  const [transcoderStakes, delegatorDelegates] = await Promise.all([
     getTranscoderStakes(voterAddresses),
-    batchResolveEns(voterAddresses),
     getDelegatorDelegates(delegatorAddresses),
   ]);
 
@@ -138,23 +136,19 @@ async function EnrichedVoterTable({ poll }: { poll: Poll }) {
   const votes: VoteWithStake[] = poll.votes.map((vote) => {
     const transcoder = transcoderStakes.get(vote.voter.toLowerCase());
     const overrides = overridesByOrch.get(vote.voter.toLowerCase()) ?? [];
-    const profile = ensProfiles.get(vote.voter.toLowerCase());
     return {
       ...vote,
       transcoderTotalStake: transcoder?.totalStake ?? null,
-      ensName: profile?.name ?? null,
-      ensAvatar: profile?.avatar ?? null,
-      delegatorOverrides: overrides.map((o) => {
-        const oProfile = ensProfiles.get(o.voter.toLowerCase());
-        return {
-          voter: o.voter,
-          ensName: oProfile?.name ?? null,
-          ensAvatar: oProfile?.avatar ?? null,
-          choiceID: o.choiceID,
-          voteStake: o.voteStake,
-          timestamp: o.timestamp,
-        };
-      }),
+      ensName: null,
+      ensAvatar: null,
+      delegatorOverrides: overrides.map((o) => ({
+        voter: o.voter,
+        ensName: null,
+        ensAvatar: null,
+        choiceID: o.choiceID,
+        voteStake: o.voteStake,
+        timestamp: o.timestamp,
+      })),
     };
   });
 
@@ -174,19 +168,12 @@ async function EnrichedNonVoterTable({ poll }: { poll: Poll }) {
     (t) => !voterSet.has(t.id.toLowerCase())
   );
 
-  const ensProfiles = await batchResolveEns(
-    nonVoterTranscoders.map((t) => t.id)
-  );
-
-  const nonVoters: NonVoter[] = nonVoterTranscoders.map((t) => {
-    const profile = ensProfiles.get(t.id.toLowerCase());
-    return {
-      address: t.id,
-      totalStake: t.totalStake,
-      ensName: profile?.name ?? null,
-      ensAvatar: profile?.avatar ?? null,
-    };
-  });
+  const nonVoters: NonVoter[] = nonVoterTranscoders.map((t) => ({
+    address: t.id,
+    totalStake: t.totalStake,
+    ensName: null,
+    ensAvatar: null,
+  }));
 
   return <NonVoterTable nonVoters={nonVoters} />;
 }
