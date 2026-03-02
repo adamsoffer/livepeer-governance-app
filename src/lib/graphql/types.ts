@@ -69,3 +69,9 @@ export interface VoteWithStake extends Vote {
   ensName: string | null;
   delegatorOverrides: DelegatorOverride[];
 }
+
+export interface NonVoter {
+  address: string;
+  totalStake: string;
+  ensName: string | null;
+}

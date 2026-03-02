@@ -8,7 +8,8 @@ import remarkGfm from "remark-gfm";
 
 const tabs = [
   { key: "overview", label: "Overview" },
-  { key: "votes", label: "Votes" },
+  { key: "votes", label: "Voters" },
+  { key: "non-voters", label: "Nonvoters" },
 ] as const;
 
 type TabKey = (typeof tabs)[number]["key"];
@@ -43,17 +44,23 @@ function Tab({
 
 export function PollTabs({
   votesContent,
+  nonVotersContent,
   proposalBody,
   resultsCard,
 }: {
   votesContent: ReactNode;
+  nonVotersContent: ReactNode;
   proposalBody: string | null;
   resultsCard: ReactNode;
 }) {
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab");
   const activeTab: TabKey =
-    tabParam === "votes" ? "votes" : "overview";
+    tabParam === "votes"
+      ? "votes"
+      : tabParam === "non-voters"
+        ? "non-voters"
+        : "overview";
 
   return (
     <div>
@@ -84,6 +91,8 @@ export function PollTabs({
       )}
 
       {activeTab === "votes" && votesContent}
+
+      {activeTab === "non-voters" && nonVotersContent}
     </div>
   );
 }
