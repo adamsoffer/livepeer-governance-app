@@ -54,6 +54,10 @@ export const POLL_DETAIL = gql`
         registeredTranscoder
       }
     }
+    voteEvents(where: { poll: $id }, first: 1000) {
+      voter
+      timestamp
+    }
   }
 `;
 
@@ -100,6 +104,17 @@ export function parseRoundStakeResults(
   });
   return blockToStake;
 }
+
+export const DELEGATOR_DELEGATES = gql`
+  query DelegatorDelegates($ids: [ID!]!) {
+    delegators(where: { id_in: $ids }, first: 1000) {
+      id
+      delegate {
+        id
+      }
+    }
+  }
+`;
 
 export const VOTES_BY_VOTER = gql`
   query VotesByVoter($voter: String!) {

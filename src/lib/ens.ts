@@ -57,9 +57,9 @@ export async function batchResolveEns(
 
   if (toResolve.length === 0) return results;
 
-  // Resolve ALL in parallel with a global timeout of 8 seconds
+  // Resolve ALL in parallel with a global timeout of 3 seconds
   const allPromises = toResolve.map((addr) =>
-    resolveWithTimeout(addr, 3000).then((name) => ({ addr, name }))
+    resolveWithTimeout(addr, 1500).then((name) => ({ addr, name }))
   );
 
   const settled = await Promise.race([
@@ -74,7 +74,7 @@ export async function batchResolveEns(
               value: { addr, name: ensCache.get(addr) ?? null },
             }))
           );
-        }, 8000)
+        }, 3000)
     ),
   ]);
 
