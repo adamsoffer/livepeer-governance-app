@@ -8,6 +8,7 @@ const client = createPublicClient({
   chain: mainnet,
   transport: http(rpcUrl, {
     timeout: 10_000,
+    batch: true,
   }),
 });
 
@@ -19,7 +20,7 @@ export interface EnsProfile {
 const ensCache = new Map<string, string | null>();
 const avatarCache = new Map<string, string | null>();
 
-const CHUNK_SIZE = 10;
+const CHUNK_SIZE = 50;
 const PER_RESOLVE_TIMEOUT = 5000;
 
 async function resolveNameSafe(address: string): Promise<string | null> {
