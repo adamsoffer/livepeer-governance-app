@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { Address } from "@/components/ui/address";
 import { formatStake } from "@/lib/utils";
+import { useEnsProfiles } from "@/hooks/use-ens-profiles";
 import type { NonVoter } from "@/lib/graphql/types";
 
 type SortField = "voter" | "totalStake";
@@ -14,15 +15,24 @@ export function NonVoterTable({ nonVoters }: { nonVoters: NonVoter[] }) {
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [search, setSearch] = useState("");
 
+  const allAddresses = useMemo(
+    () => nonVoters.map((nv) => nv.address),
+    [nonVoters]
+  );
+  const ensProfiles = useEnsProfiles(allAddresses);
+
   const filtered = useMemo(() => {
     if (!search) return nonVoters;
     const lower = search.toLowerCase();
-    return nonVoters.filter(
-      (nv) =>
+    return nonVoters.filter((nv) => {
+      const profile = ensProfiles.get(nv.address.toLowerCase());
+      const ensName = profile?.name ?? nv.ensName;
+      return (
         nv.address.toLowerCase().includes(lower) ||
-        (nv.ensName && nv.ensName.toLowerCase().includes(lower))
-    );
-  }, [nonVoters, search]);
+        (ensName && ensName.toLowerCase().includes(lower))
+      );
+    });
+  }, [nonVoters, search, ensProfiles]);
 
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
@@ -31,15 +41,16 @@ export function NonVoterTable({ nonVoters }: { nonVoters: NonVoter[] }) {
         case "totalStake":
           cmp = parseFloat(a.totalStake) - parseFloat(b.totalStake);
           break;
-        case "voter":
-          cmp = (a.ensName ?? a.address).localeCompare(
-            b.ensName ?? b.address
-          );
+        case "voter": {
+          const aName = ensProfiles.get(a.address.toLowerCase())?.name ?? a.ensName ?? a.address;
+          const bName = ensProfiles.get(b.address.toLowerCase())?.name ?? b.ensName ?? b.address;
+          cmp = aName.localeCompare(bName);
           break;
+        }
       }
       return sortDir === "desc" ? -cmp : cmp;
     });
-  }, [filtered, sortField, sortDir]);
+  }, [filtered, sortField, sortDir, ensProfiles]);
 
   const handleSort = (field: SortField) => {
     if (field === sortField) {
@@ -115,7 +126,9 @@ export function NonVoterTable({ nonVoters }: { nonVoters: NonVoter[] }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-border-subtle">
-            {sorted.map((nv) => (
+            {sorted.map((nv) => {
+              const profile = ensProfiles.get(nv.address.toLowerCase());
+              return (
               <tr
                 key={nv.address}
                 className="hover:bg-surface-raised/50 transition-colors"
@@ -125,14 +138,15 @@ export function NonVoterTable({ nonVoters }: { nonVoters: NonVoter[] }) {
                     href={`/orchestrators/${nv.address}`}
                     className="hover:underline"
                   >
-                    <Address address={nv.address} ensName={nv.ensName} ensAvatar={nv.ensAvatar} />
+                    <Address address={nv.address} ensName={profile?.name ?? nv.ensName} ensAvatar={profile?.avatar ?? nv.ensAvatar} />
                   </Link>
                 </td>
                 <td className="px-4 py-2.5 text-right font-mono text-[13px] text-text-secondary">
                   {formatStake(nv.totalStake)}
                 </td>
               </tr>
-            ))}
+              );
+            })}
             {sorted.length === 0 && (
               <tr>
                 <td
