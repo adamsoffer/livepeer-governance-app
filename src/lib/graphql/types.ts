@@ -59,6 +59,7 @@ export interface PollWithMetadata extends Poll {
 export interface DelegatorOverride {
   voter: string;
   ensName: string | null;
+  ensAvatar: string | null;
   choiceID: PollChoice;
   voteStake: string;
   timestamp: number | null;
@@ -67,6 +68,7 @@ export interface DelegatorOverride {
 export interface VoteWithStake extends Vote {
   transcoderTotalStake: string | null;
   ensName: string | null;
+  ensAvatar: string | null;
   delegatorOverrides: DelegatorOverride[];
 }
 
@@ -74,4 +76,5 @@ export interface NonVoter {
   address: string;
   totalStake: string;
   ensName: string | null;
+  ensAvatar: string | null;
 }

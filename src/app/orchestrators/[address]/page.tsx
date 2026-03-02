@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AddressAvatar } from "@/components/ui/address-avatar";
 import { getClient } from "@/lib/graphql/client";
 import {
   VOTES_BY_VOTER,
@@ -8,7 +9,7 @@ import {
   parseRoundStakeResults,
 } from "@/lib/graphql/queries";
 import { resolveProposal } from "@/lib/ipfs";
-import { resolveEnsName } from "@/lib/ens";
+import { resolveEnsProfile } from "@/lib/ens";
 import {
   computePollStatus,
   formatStake,
@@ -51,14 +52,16 @@ export default async function OrchestratorPage({
   const { address } = await params;
 
   const client = getClient();
-  const [votes, transcoder, ensName, latestRoundData] = await Promise.all([
+  const [votes, transcoder, ensProfile, latestRoundData] = await Promise.all([
     getVotesForVoter(address),
     getTranscoder(address),
-    resolveEnsName(address),
+    resolveEnsProfile(address),
     client.request<{
       rounds: Array<{ id: string; totalActiveStake: string }>;
     }>(LATEST_ROUND),
   ]);
+  const ensName = ensProfile.name;
+  const ensAvatar = ensProfile.avatar;
   const currentTotalActiveStake = parseFloat(
     latestRoundData.rounds[0].totalActiveStake
   );
@@ -93,7 +96,7 @@ export default async function OrchestratorPage({
     <div className="min-h-screen">
       {/* Header */}
       <header className="sticky top-0 z-10 border-b border-border-default bg-surface-base/80 backdrop-blur-md">
-        <div className="mx-auto flex max-w-3xl items-center gap-4 px-4 py-3 sm:px-6">
+        <div className="mx-auto flex max-w-5xl items-center gap-4 px-4 py-3 sm:px-6">
           <Link
             href="/"
             className="inline-flex items-center gap-1 text-text-tertiary hover:text-text-primary transition-colors"
@@ -118,21 +121,24 @@ export default async function OrchestratorPage({
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6">
+      <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
         {/* Identity */}
         <div className="mb-6">
-          <h1 className="text-xl font-semibold text-text-primary mb-2">
-            {ensName ? (
-              <>
-                {ensName}{" "}
-                <span className="text-[15px] font-normal text-text-tertiary font-mono">
-                  {truncateAddress(address)}
-                </span>
-              </>
-            ) : (
-              <span className="font-mono">{truncateAddress(address)}</span>
-            )}
-          </h1>
+          <div className="flex items-center gap-3 mb-2 min-w-0">
+            <AddressAvatar address={address} ensAvatar={ensAvatar} size={40} />
+            <h1 className="text-xl font-semibold text-text-primary min-w-0 truncate">
+              {ensName ? (
+                <>
+                  {ensName}{" "}
+                  <span className="text-[15px] font-normal text-text-tertiary font-mono">
+                    {truncateAddress(address)}
+                  </span>
+                </>
+              ) : (
+                <span className="font-mono">{truncateAddress(address)}</span>
+              )}
+            </h1>
+          </div>
           <div className="flex flex-wrap items-center gap-2.5 text-[12px] text-text-tertiary">
             {transcoder ? (
               <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20">
