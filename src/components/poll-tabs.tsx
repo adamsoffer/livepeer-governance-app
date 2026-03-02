@@ -16,10 +16,12 @@ type TabKey = (typeof tabs)[number]["key"];
 
 function Tab({
   label,
+  count,
   active,
   href,
 }: {
   label: string;
+  count?: number;
   active: boolean;
   href: string;
 }) {
@@ -28,13 +30,24 @@ function Tab({
       href={href}
       scroll={false}
       replace
-      className={`relative px-4 py-2.5 text-[13px] font-medium transition-colors ${
+      className={`relative inline-flex items-center gap-1.5 px-4 py-2.5 text-[13px] font-medium transition-colors ${
         active
           ? "text-text-primary"
           : "text-text-tertiary hover:text-text-secondary"
       }`}
     >
       {label}
+      {count !== undefined && (
+        <span
+          className={`inline-flex items-center justify-center rounded-full px-1.5 min-w-[20px] h-[18px] text-[10px] font-semibold tabular-nums ${
+            active
+              ? "bg-lp-green/15 text-lp-green"
+              : "bg-surface-overlay text-text-tertiary"
+          }`}
+        >
+          {count}
+        </span>
+      )}
       {active && (
         <span className="absolute inset-x-0 bottom-0 h-px bg-lp-green" />
       )}
@@ -43,11 +56,15 @@ function Tab({
 }
 
 export function PollTabs({
+  voterCount,
+  nonVoterCount,
   votesContent,
   nonVotersContent,
   proposalBody,
   resultsCard,
 }: {
+  voterCount: number;
+  nonVoterCount: number;
   votesContent: ReactNode;
   nonVotersContent: ReactNode;
   proposalBody: string | null;
@@ -69,6 +86,13 @@ export function PollTabs({
           <Tab
             key={tab.key}
             label={tab.label}
+            count={
+              tab.key === "votes"
+                ? voterCount
+                : tab.key === "non-voters"
+                  ? nonVoterCount
+                  : undefined
+            }
             active={activeTab === tab.key}
             href={tab.key === "overview" ? "?" : `?tab=${tab.key}`}
           />

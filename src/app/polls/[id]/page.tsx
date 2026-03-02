@@ -235,7 +235,16 @@ export default async function PollDetailPage({
     );
   }
 
-  const metadata = await resolveProposal(poll.proposal);
+  const client = getClient();
+  const [metadata, allTranscodersData] = await Promise.all([
+    resolveProposal(poll.proposal),
+    client.request<{ transcoders: Transcoder[] }>(ALL_TRANSCODERS),
+  ]);
+
+  const voterSet = new Set(poll.votes.map((v) => v.voter.toLowerCase()));
+  const nonVoterCount = allTranscodersData.transcoders.filter(
+    (t) => !voterSet.has(t.id.toLowerCase())
+  ).length;
 
   const status = computePollStatus(poll, totalActiveStake);
   const { yesPercentage, noPercentage, totalVoteStake } =
@@ -311,6 +320,8 @@ export default async function PollDetailPage({
 
         {/* Overview / Votes Tabs */}
         <PollTabs
+          voterCount={poll.votes.length}
+          nonVoterCount={nonVoterCount}
           proposalBody={metadata?.body ?? null}
           votesContent={
             <Suspense fallback={<VoterTableSkeleton />}>
