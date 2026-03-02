@@ -83,7 +83,7 @@ export default async function Home() {
   return (
     <div className="min-h-screen">
       <header className="sticky top-0 z-10 border-b border-border-default bg-surface-base/80 backdrop-blur-md">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3 sm:px-6">
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3 sm:px-6">
           <LivepeerLogo className="h-4 w-auto text-white" />
           <span className="text-[12px] font-mono text-text-tertiary uppercase tracking-wider">
             Governance
@@ -91,7 +91,7 @@ export default async function Home() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6">
+      <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
         <div className="space-y-4">
           {pollsWithData.map(
             ({

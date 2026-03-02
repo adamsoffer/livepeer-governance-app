@@ -117,7 +117,7 @@ async function EnrichedVoterTable({ poll }: { poll: Poll }) {
     .filter((v) => !v.registeredTranscoder)
     .map((v) => v.voter);
 
-  const [transcoderStakes, ensNames, delegatorDelegates] = await Promise.all([
+  const [transcoderStakes, ensProfiles, delegatorDelegates] = await Promise.all([
     getTranscoderStakes(voterAddresses),
     batchResolveEns(voterAddresses),
     getDelegatorDelegates(delegatorAddresses),
@@ -138,17 +138,23 @@ async function EnrichedVoterTable({ poll }: { poll: Poll }) {
   const votes: VoteWithStake[] = poll.votes.map((vote) => {
     const transcoder = transcoderStakes.get(vote.voter.toLowerCase());
     const overrides = overridesByOrch.get(vote.voter.toLowerCase()) ?? [];
+    const profile = ensProfiles.get(vote.voter.toLowerCase());
     return {
       ...vote,
       transcoderTotalStake: transcoder?.totalStake ?? null,
-      ensName: ensNames.get(vote.voter.toLowerCase()) ?? null,
-      delegatorOverrides: overrides.map((o) => ({
-        voter: o.voter,
-        ensName: ensNames.get(o.voter.toLowerCase()) ?? null,
-        choiceID: o.choiceID,
-        voteStake: o.voteStake,
-        timestamp: o.timestamp,
-      })),
+      ensName: profile?.name ?? null,
+      ensAvatar: profile?.avatar ?? null,
+      delegatorOverrides: overrides.map((o) => {
+        const oProfile = ensProfiles.get(o.voter.toLowerCase());
+        return {
+          voter: o.voter,
+          ensName: oProfile?.name ?? null,
+          ensAvatar: oProfile?.avatar ?? null,
+          choiceID: o.choiceID,
+          voteStake: o.voteStake,
+          timestamp: o.timestamp,
+        };
+      }),
     };
   });
 
@@ -168,15 +174,19 @@ async function EnrichedNonVoterTable({ poll }: { poll: Poll }) {
     (t) => !voterSet.has(t.id.toLowerCase())
   );
 
-  const ensNames = await batchResolveEns(
+  const ensProfiles = await batchResolveEns(
     nonVoterTranscoders.map((t) => t.id)
   );
 
-  const nonVoters: NonVoter[] = nonVoterTranscoders.map((t) => ({
-    address: t.id,
-    totalStake: t.totalStake,
-    ensName: ensNames.get(t.id.toLowerCase()) ?? null,
-  }));
+  const nonVoters: NonVoter[] = nonVoterTranscoders.map((t) => {
+    const profile = ensProfiles.get(t.id.toLowerCase());
+    return {
+      address: t.id,
+      totalStake: t.totalStake,
+      ensName: profile?.name ?? null,
+      ensAvatar: profile?.avatar ?? null,
+    };
+  });
 
   return <NonVoterTable nonVoters={nonVoters} />;
 }
@@ -265,7 +275,7 @@ export default async function PollDetailPage({
   return (
     <div className="min-h-screen">
       <header className="sticky top-0 z-10 border-b border-border-default bg-surface-base/80 backdrop-blur-md">
-        <div className="mx-auto flex max-w-3xl items-center gap-4 px-4 py-3 sm:px-6">
+        <div className="mx-auto flex max-w-5xl items-center gap-4 px-4 py-3 sm:px-6">
           <Link
             href="/"
             className="inline-flex items-center gap-1 text-text-tertiary hover:text-text-primary transition-colors"
@@ -290,7 +300,7 @@ export default async function PollDetailPage({
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6">
+      <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
         {/* Title + Meta */}
         <div className="mb-6">
           <div className="mb-2">

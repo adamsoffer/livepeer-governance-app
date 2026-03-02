@@ -125,7 +125,7 @@ export function NonVoterTable({ nonVoters }: { nonVoters: NonVoter[] }) {
                     href={`/orchestrators/${nv.address}`}
                     className="hover:underline"
                   >
-                    <Address address={nv.address} ensName={nv.ensName} />
+                    <Address address={nv.address} ensName={nv.ensName} ensAvatar={nv.ensAvatar} />
                   </Link>
                 </td>
                 <td className="px-4 py-2.5 text-right font-mono text-[13px] text-text-secondary">

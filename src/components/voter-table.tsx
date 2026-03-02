@@ -38,7 +38,7 @@ function VoteRow({
             href={`/orchestrators/${vote.voter}`}
             className="hover:underline"
           >
-            <Address address={vote.voter} ensName={vote.ensName} />
+            <Address address={vote.voter} ensName={vote.ensName} ensAvatar={vote.ensAvatar} />
           </Link>
           {hasOverrides && (
             <button
@@ -105,6 +105,7 @@ function VoteRow({
                 <Address
                   address={override.voter}
                   ensName={override.ensName}
+                  ensAvatar={override.ensAvatar}
                 />
               </Link>
             </td>
