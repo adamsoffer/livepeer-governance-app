@@ -1,26 +1,123 @@
 @import "tailwindcss";
-
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@import "github-markdown-css/github-markdown-dark.css";
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-mono);
+
+  /* Livepeer brand greens */
+  --color-lp-green: #18794E;
+  --color-lp-green-light: #1E9960;
+  --color-lp-green-dark: #115C3B;
+  --color-lp-green-bright: #40BF86;
+  --color-lp-green-subtle: #0d1f17;
+
+  /* Livepeer brand blues */
+  --color-lp-blue: #146A8F;
+  --color-lp-blue-bright: #25ABD0;
+
+  /* Surfaces — Livepeer brand dark theme */
+  --color-surface-base: #181818;
+  --color-surface-raised: #1E1E1E;
+  --color-surface-overlay: #242424;
+  --color-surface-card: #1E1E1E;
+  --color-border-default: #2A2A2A;
+  --color-border-subtle: #222222;
+  --color-border-hover: #2F2F2F;
+
+  /* Text — white at brand opacity levels */
+  --color-text-primary: #FFFFFF;
+  --color-text-secondary: #A3A3A3;
+  --color-text-tertiary: #666666;
+
+  /* Semantic */
+  --color-vote-yes: #40BF86;
+  --color-vote-no: #F75F6B;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  border-color: #2A2A2A;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: #181818;
+  color: #FFFFFF;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2A2A2A;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #2F2F2F;
+}
+
+/* GitHub markdown dark theme overrides */
+.markdown-body {
+  --bgColor-default: transparent;
+  --bgColor-muted: #242424;
+  --borderColor-default: #2A2A2A;
+  --borderColor-muted: #222222;
+  --fgColor-default: #A3A3A3;
+  --fgColor-muted: #666666;
+  --fgColor-accent: #40BF86;
+  --bgColor-neutral-muted: #242424;
+  background-color: transparent;
+  color: #A3A3A3;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4 {
+  color: #FFFFFF;
+}
+
+.markdown-body a {
+  color: #40BF86;
+}
+
+.markdown-body code {
+  background: #242424;
+  color: #A3A3A3;
+}
+
+.markdown-body pre {
+  background: #242424;
+  border: 1px solid #2A2A2A;
+}
+
+.markdown-body blockquote {
+  border-left-color: #2F2F2F;
+  color: #666666;
+}
+
+.markdown-body table th,
+.markdown-body table td {
+  border-color: #2A2A2A;
+}
+
+.markdown-body table tr {
+  background-color: transparent;
+  border-color: #2A2A2A;
+}
+
+.markdown-body table tr:nth-child(2n) {
+  background-color: #1E1E1E;
+}
+
+.markdown-body hr {
+  background-color: #2A2A2A;
 }

@@ -1,63 +1,129 @@
-import Image from "next/image";
+import { getClient } from "@/lib/graphql/client";
+import {
+  ALL_POLLS,
+  LATEST_ROUND,
+  buildRoundStakeQuery,
+  parseRoundStakeResults,
+} from "@/lib/graphql/queries";
+import { resolveProposal } from "@/lib/ipfs";
+import {
+  computePollStatus,
+  computePercentages,
+  computeQuorum,
+  isPollActive,
+} from "@/lib/utils";
+import { PollCard } from "@/components/poll-card";
+import { LivepeerLogo } from "@/components/livepeer-logo";
+import type { Poll } from "@/lib/graphql/types";
 
-export default function Home() {
+export const revalidate = 300;
+
+async function getData() {
+  const client = getClient();
+  const [pollsData, latestRoundData] = await Promise.all([
+    client.request<{ polls: Poll[] }>(ALL_POLLS),
+    client.request<{
+      rounds: Array<{ id: string; totalActiveStake: string }>;
+    }>(LATEST_ROUND),
+  ]);
+
+  const polls = pollsData.polls;
+  const currentTotalActiveStake = parseFloat(
+    latestRoundData.rounds[0].totalActiveStake
+  );
+
+  // Fetch per-round totalActiveStake for each poll's endBlock
+  const endBlocks = polls.map((p) => parseInt(p.endBlock));
+  const query = buildRoundStakeQuery(endBlocks);
+  const data = await client.request<
+    Record<string, Array<{ id: string; totalActiveStake: string }>>
+  >(query);
+  const stakeByBlock = parseRoundStakeResults(endBlocks, data);
+
+  return { polls, currentTotalActiveStake, stakeByBlock };
+}
+
+export default async function Home() {
+  const { polls, currentTotalActiveStake, stakeByBlock } = await getData();
+
+  const metadata = await Promise.all(
+    polls.map((p) => resolveProposal(p.proposal))
+  );
+
+  const pollsWithData = polls.map((poll, i) => {
+    const endBlock = parseInt(poll.endBlock);
+    // Use round-level totalActiveStake; fall back to current for active polls
+    const totalActiveStake = isPollActive(poll)
+      ? currentTotalActiveStake
+      : (stakeByBlock.get(endBlock) ?? currentTotalActiveStake);
+
+    const { yesPercentage, noPercentage, totalVoteStake } =
+      computePercentages(poll);
+    const { quorumPercentage, quorumMet } = computeQuorum(
+      poll,
+      totalActiveStake
+    );
+    const yesVoters = poll.votes.filter((v) => v.choiceID === "Yes").length;
+    const noVoters = poll.votes.filter((v) => v.choiceID === "No").length;
+
+    return {
+      poll,
+      metadata: metadata[i],
+      status: computePollStatus(poll, totalActiveStake),
+      yesPercentage,
+      noPercentage,
+      totalVoteStake,
+      quorumPercentage,
+      quorumMet,
+      yesVoters,
+      noVoters,
+    };
+  });
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="min-h-screen">
+      <header className="sticky top-0 z-10 border-b border-border-default bg-surface-base/80 backdrop-blur-md">
+        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3 sm:px-6">
+          <LivepeerLogo className="h-4 w-auto text-white" />
+          <span className="text-[12px] font-mono text-text-tertiary uppercase tracking-wider">
+            Governance
+          </span>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </header>
+
+      <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6">
+        <div className="space-y-4">
+          {pollsWithData.map(
+            ({
+              poll,
+              metadata: meta,
+              status,
+              yesPercentage,
+              noPercentage,
+              totalVoteStake,
+              quorumPercentage,
+              quorumMet,
+              yesVoters,
+              noVoters,
+            }) => (
+              <PollCard
+                key={poll.id}
+                id={poll.id}
+                metadata={meta}
+                status={status}
+                yesPercentage={yesPercentage}
+                noPercentage={noPercentage}
+                yesStake={poll.tally?.yes ?? "0"}
+                noStake={poll.tally?.no ?? "0"}
+                totalVoteStake={totalVoteStake}
+                voterCount={poll.votes.length}
+                quorumPercentage={quorumPercentage}
+                quorumMet={quorumMet}
+                yesVoters={yesVoters}
+                noVoters={noVoters}
+              />
+            )
+          )}
         </div>
       </main>
     </div>
