@@ -43,33 +43,35 @@ function VoteRow({
     <>
       <tr className="hover:bg-surface-raised/50 transition-colors">
         <td className="px-4 py-2.5">
-          <Link
-            href={`/orchestrators/${vote.voter}`}
-            className="hover:underline"
-          >
-            <Address address={vote.voter} ensName={profile?.name ?? vote.ensName} ensAvatar={profile?.avatar ?? vote.ensAvatar} />
-          </Link>
-          {hasOverrides && (
-            <button
-              onClick={onToggle}
-              className="flex items-center gap-0.5 text-[10px] font-sans text-amber-400 hover:text-amber-300 transition-colors mt-0.5"
+          <div className="flex items-center gap-2">
+            <Link
+              href={`/orchestrators/${vote.voter}`}
+              className="hover:underline"
             >
-              <span>{vote.delegatorOverrides.length} override{vote.delegatorOverrides.length > 1 ? "s" : ""}</span>
-              <svg
-                className={`h-3 w-3 transition-transform ${expanded ? "rotate-180" : ""}`}
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
+              <Address address={vote.voter} ensName={profile?.name ?? vote.ensName} ensAvatar={profile?.avatar ?? vote.ensAvatar} />
+            </Link>
+            {hasOverrides && (
+              <button
+                onClick={onToggle}
+                className="flex items-center gap-0.5 text-[10px] font-sans text-amber-400 hover:text-amber-300 transition-colors whitespace-nowrap"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M19 9l-7 7-7-7"
-                />
-              </svg>
-            </button>
-          )}
+                <span>{vote.delegatorOverrides.length} override{vote.delegatorOverrides.length > 1 ? "s" : ""}</span>
+                <svg
+                  className={`h-3 w-3 transition-transform ${expanded ? "rotate-180" : ""}`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M19 9l-7 7-7-7"
+                  />
+                </svg>
+              </button>
+            )}
+          </div>
         </td>
         <td className="px-4 py-2.5">
           <span

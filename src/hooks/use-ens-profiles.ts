@@ -5,10 +5,15 @@ interface EnsProfile {
   avatar: string | null;
 }
 
-const BATCH_SIZE = 50;
+interface EnsDataEntry {
+  ens_primary?: string;
+  avatar?: string;
+}
+
+const BATCH_SIZE = 25;
 
 /**
- * Client-side hook that progressively resolves ENS profiles for a list of addresses.
+ * Client-side hook that resolves ENS profiles via ensdata.net bulk API.
  * Returns a map of lowercase address -> EnsProfile that updates as batches resolve.
  */
 export function useEnsProfiles(addresses: string[]) {
@@ -26,44 +31,42 @@ export function useEnsProfiles(addresses: string[]) {
     if (!addressKey) return;
 
     const unique = addressKey.split(",");
-    let cancelled = false;
+    const controller = new AbortController();
 
-    async function fetchBatches() {
-      for (let i = 0; i < unique.length; i += BATCH_SIZE) {
-        if (cancelled) return;
-        const batch = unique.slice(i, i + BATCH_SIZE);
+    async function fetchBatch(batch: string[]) {
+      const q = batch.join(",");
+      const res = await fetch(`https://api.ensdata.net/bulk?q=${q}`, {
+        signal: controller.signal,
+      });
+      if (!res.ok) return;
 
-        try {
-          const res = await fetch("/api/ens", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ addresses: batch }),
+      const data = (await res.json()) as Record<string, EnsDataEntry>;
+
+      if (controller.signal.aborted) return;
+
+      setProfiles((prev) => {
+        const next = new Map(prev);
+        for (const [addr, entry] of Object.entries(data)) {
+          next.set(addr.toLowerCase(), {
+            name: entry.ens_primary || null,
+            avatar: entry.avatar || null,
           });
-          if (!res.ok) continue;
-
-          const data = (await res.json()) as {
-            profiles: Record<string, EnsProfile>;
-          };
-
-          if (cancelled) return;
-
-          setProfiles((prev) => {
-            const next = new Map(prev);
-            for (const [addr, profile] of Object.entries(data.profiles)) {
-              next.set(addr.toLowerCase(), profile);
-            }
-            return next;
-          });
-        } catch {
-          // Continue with next batch on error
         }
-      }
+        return next;
+      });
     }
 
-    fetchBatches();
+    // Send all batches in parallel
+    const batches: string[][] = [];
+    for (let i = 0; i < unique.length; i += BATCH_SIZE) {
+      batches.push(unique.slice(i, i + BATCH_SIZE));
+    }
+
+    // Use allSettled so one failed batch doesn't block others
+    Promise.allSettled(batches.map(fetchBatch));
 
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [addressKey]);
 
