@@ -1,8 +1,10 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { getClient } from "@/lib/graphql/client";
 import {
   POLL_DETAIL,
   TRANSCODER_STAKES,
+  DELEGATOR_DELEGATES,
   LATEST_ROUND,
   buildRoundStakeQuery,
   parseRoundStakeResults,
@@ -20,9 +22,11 @@ import { LivepeerLogo } from "@/components/livepeer-logo";
 import { StatusBadge } from "@/components/ui/badge";
 import { VoteResultsBar } from "@/components/vote-results-bar";
 import { PollTabs } from "@/components/poll-tabs";
+import { VoterTable } from "@/components/voter-table";
 import type {
   Poll,
   Transcoder,
+  VoteEvent,
   VoteWithStake,
 } from "@/lib/graphql/types";
 
@@ -31,13 +35,26 @@ export const revalidate = 300;
 async function getPollData(id: string) {
   const client = getClient();
   const [pollData, latestRoundData] = await Promise.all([
-    client.request<{ poll: Poll | null }>(POLL_DETAIL, { id }),
+    client.request<{ poll: Poll | null; voteEvents: VoteEvent[] }>(POLL_DETAIL, {
+      id,
+    }),
     client.request<{
       rounds: Array<{ id: string; totalActiveStake: string }>;
     }>(LATEST_ROUND),
   ]);
 
   const poll = pollData.poll;
+
+  // Merge timestamps from VoteEvents into Vote objects
+  if (poll) {
+    const timestampMap = new Map<string, number>();
+    for (const event of pollData.voteEvents) {
+      timestampMap.set(event.voter.toLowerCase(), event.timestamp);
+    }
+    for (const vote of poll.votes) {
+      vote.timestamp = timestampMap.get(vote.voter.toLowerCase()) ?? null;
+    }
+  }
   const currentTotalActiveStake = parseFloat(
     latestRoundData.rounds[0].totalActiveStake
   );
@@ -74,6 +91,95 @@ async function getTranscoderStakes(addresses: string[]) {
   return map;
 }
 
+async function getDelegatorDelegates(addresses: string[]) {
+  if (addresses.length === 0) return new Map<string, string>();
+  const client = getClient();
+  const data = await client.request<{
+    delegators: Array<{ id: string; delegate: { id: string } | null }>;
+  }>(DELEGATOR_DELEGATES, {
+    ids: addresses.map((a) => a.toLowerCase()),
+  });
+  const map = new Map<string, string>();
+  for (const d of data.delegators) {
+    if (d.delegate) {
+      map.set(d.id.toLowerCase(), d.delegate.id.toLowerCase());
+    }
+  }
+  return map;
+}
+
+async function EnrichedVoterTable({ poll }: { poll: Poll }) {
+  const voterAddresses = poll.votes.map((v) => v.voter);
+  const delegatorAddresses = poll.votes
+    .filter((v) => !v.registeredTranscoder)
+    .map((v) => v.voter);
+
+  const [transcoderStakes, ensNames, delegatorDelegates] = await Promise.all([
+    getTranscoderStakes(voterAddresses),
+    batchResolveEns(voterAddresses),
+    getDelegatorDelegates(delegatorAddresses),
+  ]);
+
+  // Build a map of orchestrator -> delegator overrides
+  const overridesByOrch = new Map<string, typeof poll.votes>();
+  for (const vote of poll.votes) {
+    if (vote.registeredTranscoder) continue;
+    const delegate = delegatorDelegates.get(vote.voter.toLowerCase());
+    if (delegate) {
+      const existing = overridesByOrch.get(delegate) ?? [];
+      existing.push(vote);
+      overridesByOrch.set(delegate, existing);
+    }
+  }
+
+  const votes: VoteWithStake[] = poll.votes.map((vote) => {
+    const transcoder = transcoderStakes.get(vote.voter.toLowerCase());
+    const overrides = overridesByOrch.get(vote.voter.toLowerCase()) ?? [];
+    return {
+      ...vote,
+      transcoderTotalStake: transcoder?.totalStake ?? null,
+      ensName: ensNames.get(vote.voter.toLowerCase()) ?? null,
+      delegatorOverrides: overrides.map((o) => ({
+        voter: o.voter,
+        ensName: ensNames.get(o.voter.toLowerCase()) ?? null,
+        choiceID: o.choiceID,
+        voteStake: o.voteStake,
+        timestamp: o.timestamp,
+      })),
+    };
+  });
+
+  return <VoterTable votes={votes} />;
+}
+
+function VoterTableSkeleton() {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-3">
+        <div className="h-8 w-64 rounded-md bg-surface-overlay animate-pulse" />
+        <div className="h-4 w-16 rounded bg-surface-overlay animate-pulse" />
+      </div>
+      <div className="rounded-lg border border-border-default overflow-hidden">
+        <div className="border-b border-border-default bg-surface-raised px-4 py-2.5">
+          <div className="h-3 w-full rounded bg-surface-overlay animate-pulse" />
+        </div>
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div
+            key={i}
+            className="flex gap-4 px-4 py-2.5 border-b border-border-subtle last:border-0"
+          >
+            <div className="h-4 w-32 rounded bg-surface-overlay animate-pulse" />
+            <div className="h-4 w-20 rounded bg-surface-overlay animate-pulse" />
+            <div className="h-4 w-12 rounded bg-surface-overlay animate-pulse" />
+            <div className="h-4 w-24 rounded bg-surface-overlay animate-pulse ml-auto" />
+            <div className="h-4 w-24 rounded bg-surface-overlay animate-pulse" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default async function PollDetailPage({
   params,
 }: {
@@ -100,13 +206,7 @@ export default async function PollDetailPage({
     );
   }
 
-  const voterAddresses = poll.votes.map((v) => v.voter);
-
-  const [metadata, transcoderStakes, ensNames] = await Promise.all([
-    resolveProposal(poll.proposal),
-    getTranscoderStakes(voterAddresses),
-    batchResolveEns(voterAddresses),
-  ]);
+  const metadata = await resolveProposal(poll.proposal);
 
   const status = computePollStatus(poll, totalActiveStake);
   const { yesPercentage, noPercentage, totalVoteStake } =
@@ -115,15 +215,6 @@ export default async function PollDetailPage({
     poll,
     totalActiveStake
   );
-
-  const votes: VoteWithStake[] = poll.votes.map((vote) => {
-    const transcoder = transcoderStakes.get(vote.voter.toLowerCase());
-    return {
-      ...vote,
-      transcoderTotalStake: transcoder?.totalStake ?? null,
-      ensName: ensNames.get(vote.voter.toLowerCase()) ?? null,
-    };
-  });
 
   const title = metadata
     ? metadata.lip
@@ -178,11 +269,11 @@ export default async function PollDetailPage({
               </>
             )}
             <span className="text-vote-yes">
-              {votes.filter((v) => v.choiceID === "Yes").length} Yes
+              {poll.votes.filter((v) => v.choiceID === "Yes").length} Yes
             </span>
             <span className="text-text-tertiary">/</span>
             <span className="text-vote-no">
-              {votes.filter((v) => v.choiceID === "No").length} No
+              {poll.votes.filter((v) => v.choiceID === "No").length} No
             </span>
             <span className="text-border-hover px-1">·</span>
             <span>{formatStake(totalVoteStake)} LPT participated</span>
@@ -191,8 +282,12 @@ export default async function PollDetailPage({
 
         {/* Overview / Votes Tabs */}
         <PollTabs
-          votes={votes}
           proposalBody={metadata?.body ?? null}
+          votesContent={
+            <Suspense fallback={<VoterTableSkeleton />}>
+              <EnrichedVoterTable poll={poll} />
+            </Suspense>
+          }
           resultsCard={
             <div className="rounded-lg border border-border-default bg-surface-card p-5">
               <div className="text-[11px] font-medium uppercase tracking-wider text-text-tertiary mb-3">

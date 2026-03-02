@@ -6,13 +6,155 @@ import { Address } from "@/components/ui/address";
 import { formatStake } from "@/lib/utils";
 import type { VoteWithStake } from "@/lib/graphql/types";
 
-type SortField = "totalStake" | "voteStake" | "choice" | "voter";
+type SortField = "stake" | "choice" | "voter" | "time";
 type SortDir = "asc" | "desc";
 
+function formatTimestamp(timestamp: number): string {
+  const date = new Date(timestamp * 1000);
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const year = String(date.getFullYear()).slice(2);
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${month}/${day}/${year} ${hours}:${minutes}`;
+}
+
+function VoteRow({
+  vote,
+  expanded,
+  onToggle,
+}: {
+  vote: VoteWithStake;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const hasOverrides = vote.delegatorOverrides.length > 0;
+
+  return (
+    <>
+      <tr className="hover:bg-surface-raised/50 transition-colors">
+        <td className="px-4 py-2.5">
+          <Link
+            href={`/orchestrators/${vote.voter}`}
+            className="hover:underline"
+          >
+            <Address address={vote.voter} ensName={vote.ensName} />
+          </Link>
+          {hasOverrides && (
+            <button
+              onClick={onToggle}
+              className="flex items-center gap-0.5 text-[10px] font-sans text-amber-400 hover:text-amber-300 transition-colors mt-0.5"
+            >
+              <span>{vote.delegatorOverrides.length} override{vote.delegatorOverrides.length > 1 ? "s" : ""}</span>
+              <svg
+                className={`h-3 w-3 transition-transform ${expanded ? "rotate-180" : ""}`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M19 9l-7 7-7-7"
+                />
+              </svg>
+            </button>
+          )}
+        </td>
+        <td className="px-4 py-2.5">
+          <span
+            className={`inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium ${
+              vote.registeredTranscoder
+                ? "bg-purple-500/10 text-purple-400 border border-purple-500/20"
+                : "bg-surface-overlay text-text-tertiary border border-border-default"
+            }`}
+          >
+            {vote.registeredTranscoder ? "Orchestrator" : "Delegator"}
+          </span>
+        </td>
+        <td className="px-4 py-2.5">
+          <span
+            className={`inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-semibold ${
+              vote.choiceID === "Yes"
+                ? "bg-vote-yes/10 text-vote-yes"
+                : "bg-vote-no/10 text-vote-no"
+            }`}
+          >
+            {vote.choiceID}
+          </span>
+        </td>
+        <td className="px-4 py-2.5 text-right font-mono text-[13px] text-text-secondary whitespace-nowrap">
+          {formatStake(vote.voteStake)}
+        </td>
+        <td className="px-4 py-2.5 text-right text-[12px] text-text-tertiary whitespace-nowrap">
+          {vote.timestamp ? formatTimestamp(vote.timestamp) : "—"}
+        </td>
+      </tr>
+      {expanded &&
+        vote.delegatorOverrides.map((override) => (
+          <tr
+            key={override.voter}
+            className="bg-white/[0.04]"
+          >
+            <td className="pl-8 pr-4 py-2">
+              <Link
+                href={`/orchestrators/${override.voter}`}
+                className="hover:underline"
+              >
+                <Address
+                  address={override.voter}
+                  ensName={override.ensName}
+                />
+              </Link>
+            </td>
+            <td className="px-4 py-2">
+              <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium bg-surface-overlay text-text-tertiary border border-border-default">
+                Delegator
+              </span>
+            </td>
+            <td className="px-4 py-2">
+              <span
+                className={`inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-semibold ${
+                  override.choiceID === "Yes"
+                    ? "bg-vote-yes/10 text-vote-yes"
+                    : "bg-vote-no/10 text-vote-no"
+                }`}
+              >
+                {override.choiceID}
+              </span>
+            </td>
+            <td className="px-4 py-2 text-right font-mono text-[12px] text-text-tertiary">
+              {formatStake(override.voteStake)}
+            </td>
+            <td className="px-4 py-2 text-right text-[12px] text-text-tertiary whitespace-nowrap">
+              {override.timestamp ? formatTimestamp(override.timestamp) : "—"}
+            </td>
+          </tr>
+        ))}
+    </>
+  );
+}
+
 export function VoterTable({ votes }: { votes: VoteWithStake[] }) {
-  const [sortField, setSortField] = useState<SortField>("totalStake");
+  const [sortField, setSortField] = useState<SortField>("stake");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [search, setSearch] = useState("");
+  const [expandedVoters, setExpandedVoters] = useState<Set<string>>(
+    new Set()
+  );
+
+  const toggleExpanded = (voter: string) => {
+    setExpandedVoters((prev) => {
+      const next = new Set(prev);
+      if (next.has(voter)) {
+        next.delete(voter);
+      } else {
+        next.add(voter);
+      }
+      return next;
+    });
+  };
 
   const filtered = useMemo(() => {
     if (!search) return votes;
@@ -28,13 +170,7 @@ export function VoterTable({ votes }: { votes: VoteWithStake[] }) {
     return [...filtered].sort((a, b) => {
       let cmp = 0;
       switch (sortField) {
-        case "totalStake": {
-          const aStake = parseFloat(a.transcoderTotalStake ?? a.voteStake);
-          const bStake = parseFloat(b.transcoderTotalStake ?? b.voteStake);
-          cmp = aStake - bStake;
-          break;
-        }
-        case "voteStake":
+        case "stake":
           cmp = parseFloat(a.voteStake) - parseFloat(b.voteStake);
           break;
         case "choice":
@@ -42,6 +178,9 @@ export function VoterTable({ votes }: { votes: VoteWithStake[] }) {
           break;
         case "voter":
           cmp = (a.ensName ?? a.voter).localeCompare(b.ensName ?? b.voter);
+          break;
+        case "time":
+          cmp = (a.timestamp ?? 0) - (b.timestamp ?? 0);
           break;
       }
       return sortDir === "desc" ? -cmp : cmp;
@@ -120,62 +259,22 @@ export function VoterTable({ votes }: { votes: VoteWithStake[] }) {
                 Type
               </th>
               <SortHeader field="choice">Vote</SortHeader>
-              <SortHeader field="voteStake" className="text-right">
-                Vote Stake
+              <SortHeader field="stake" className="text-right">
+                Vote Weight
               </SortHeader>
-              <SortHeader field="totalStake" className="text-right">
-                Total Stake
+              <SortHeader field="time" className="text-right">
+                Date
               </SortHeader>
             </tr>
           </thead>
           <tbody className="divide-y divide-border-subtle">
             {sorted.map((vote) => (
-              <tr
+              <VoteRow
                 key={vote.id}
-                className="hover:bg-surface-raised/50 transition-colors"
-              >
-                <td className="px-4 py-2.5">
-                  <Link
-                    href={`/orchestrators/${vote.voter}`}
-                    className="hover:underline"
-                  >
-                    <Address
-                      address={vote.voter}
-                      ensName={vote.ensName}
-                    />
-                  </Link>
-                </td>
-                <td className="px-4 py-2.5">
-                  <span
-                    className={`inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium ${
-                      vote.registeredTranscoder
-                        ? "bg-purple-500/10 text-purple-400 border border-purple-500/20"
-                        : "bg-surface-overlay text-text-tertiary border border-border-default"
-                    }`}
-                  >
-                    {vote.registeredTranscoder ? "Orchestrator" : "Delegator"}
-                  </span>
-                </td>
-                <td className="px-4 py-2.5">
-                  <span
-                    className={`inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-semibold ${
-                      vote.choiceID === "Yes"
-                        ? "bg-vote-yes/10 text-vote-yes"
-                        : "bg-vote-no/10 text-vote-no"
-                    }`}
-                  >
-                    {vote.choiceID}
-                  </span>
-                </td>
-                <td className="px-4 py-2.5 text-right font-mono text-[13px] text-text-secondary">
-                  {formatStake(vote.voteStake)}
-                </td>
-                <td className="px-4 py-2.5 text-right font-mono text-[13px] text-text-secondary">
-                  {vote.transcoderTotalStake
-                    ? formatStake(vote.transcoderTotalStake)
-                    : formatStake(vote.voteStake)}
-                </td>
-              </tr>
+                vote={vote}
+                expanded={expandedVoters.has(vote.voter)}
+                onToggle={() => toggleExpanded(vote.voter)}
+              />
             ))}
             {sorted.length === 0 && (
               <tr>

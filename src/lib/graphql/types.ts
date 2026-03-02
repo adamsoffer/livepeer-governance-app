@@ -12,6 +12,12 @@ export interface Vote {
   voteStake: string;
   nonVoteStake: string;
   registeredTranscoder: boolean;
+  timestamp: number | null;
+}
+
+export interface VoteEvent {
+  voter: string;
+  timestamp: number;
 }
 
 export interface Poll {
@@ -50,7 +56,16 @@ export interface PollWithMetadata extends Poll {
   totalVoteStake: number;
 }
 
+export interface DelegatorOverride {
+  voter: string;
+  ensName: string | null;
+  choiceID: PollChoice;
+  voteStake: string;
+  timestamp: number | null;
+}
+
 export interface VoteWithStake extends Vote {
   transcoderTotalStake: string | null;
   ensName: string | null;
+  delegatorOverrides: DelegatorOverride[];
 }

@@ -3,8 +3,6 @@
 import { useState, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { VoterTable } from "@/components/voter-table";
-import type { VoteWithStake } from "@/lib/graphql/types";
 
 const tabs = [
   { key: "overview", label: "Overview" },
@@ -40,11 +38,11 @@ function Tab({
 }
 
 export function PollTabs({
-  votes,
+  votesContent,
   proposalBody,
   resultsCard,
 }: {
-  votes: VoteWithStake[];
+  votesContent: ReactNode;
   proposalBody: string | null;
   resultsCard: ReactNode;
 }) {
@@ -78,7 +76,7 @@ export function PollTabs({
         </div>
       )}
 
-      {activeTab === "votes" && <VoterTable votes={votes} />}
+      {activeTab === "votes" && votesContent}
     </div>
   );
 }
