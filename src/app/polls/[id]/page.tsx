@@ -5,6 +5,7 @@ import {
   POLL_DETAIL,
   TRANSCODER_STAKES,
   DELEGATOR_DELEGATES,
+  ALL_TRANSCODERS,
   LATEST_ROUND,
   buildRoundStakeQuery,
   parseRoundStakeResults,
@@ -23,11 +24,13 @@ import { StatusBadge } from "@/components/ui/badge";
 import { VoteResultsBar } from "@/components/vote-results-bar";
 import { PollTabs } from "@/components/poll-tabs";
 import { VoterTable } from "@/components/voter-table";
+import { NonVoterTable } from "@/components/non-voter-table";
 import type {
   Poll,
   Transcoder,
   VoteEvent,
   VoteWithStake,
+  NonVoter,
 } from "@/lib/graphql/types";
 
 export const revalidate = 300;
@@ -152,6 +155,32 @@ async function EnrichedVoterTable({ poll }: { poll: Poll }) {
   return <VoterTable votes={votes} />;
 }
 
+async function EnrichedNonVoterTable({ poll }: { poll: Poll }) {
+  const client = getClient();
+  const allTranscodersData = await client.request<{
+    transcoders: Transcoder[];
+  }>(ALL_TRANSCODERS);
+
+  const voterSet = new Set(
+    poll.votes.map((v) => v.voter.toLowerCase())
+  );
+  const nonVoterTranscoders = allTranscodersData.transcoders.filter(
+    (t) => !voterSet.has(t.id.toLowerCase())
+  );
+
+  const ensNames = await batchResolveEns(
+    nonVoterTranscoders.map((t) => t.id)
+  );
+
+  const nonVoters: NonVoter[] = nonVoterTranscoders.map((t) => ({
+    address: t.id,
+    totalStake: t.totalStake,
+    ensName: ensNames.get(t.id.toLowerCase()) ?? null,
+  }));
+
+  return <NonVoterTable nonVoters={nonVoters} />;
+}
+
 function VoterTableSkeleton() {
   return (
     <div className="space-y-3">
@@ -206,7 +235,16 @@ export default async function PollDetailPage({
     );
   }
 
-  const metadata = await resolveProposal(poll.proposal);
+  const client = getClient();
+  const [metadata, allTranscodersData] = await Promise.all([
+    resolveProposal(poll.proposal),
+    client.request<{ transcoders: Transcoder[] }>(ALL_TRANSCODERS),
+  ]);
+
+  const voterSet = new Set(poll.votes.map((v) => v.voter.toLowerCase()));
+  const nonVoterCount = allTranscodersData.transcoders.filter(
+    (t) => !voterSet.has(t.id.toLowerCase())
+  ).length;
 
   const status = computePollStatus(poll, totalActiveStake);
   const { yesPercentage, noPercentage, totalVoteStake } =
@@ -282,10 +320,17 @@ export default async function PollDetailPage({
 
         {/* Overview / Votes Tabs */}
         <PollTabs
+          voterCount={poll.votes.length}
+          nonVoterCount={nonVoterCount}
           proposalBody={metadata?.body ?? null}
           votesContent={
             <Suspense fallback={<VoterTableSkeleton />}>
               <EnrichedVoterTable poll={poll} />
+            </Suspense>
+          }
+          nonVotersContent={
+            <Suspense fallback={<VoterTableSkeleton />}>
+              <EnrichedNonVoterTable poll={poll} />
             </Suspense>
           }
           resultsCard={

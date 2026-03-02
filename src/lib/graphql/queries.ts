@@ -116,6 +116,16 @@ export const DELEGATOR_DELEGATES = gql`
   }
 `;
 
+export const ALL_TRANSCODERS = gql`
+  query AllTranscoders {
+    transcoders(where: { active: true }, orderBy: totalStake, orderDirection: desc, first: 1000) {
+      id
+      totalStake
+      active
+    }
+  }
+`;
+
 export const VOTES_BY_VOTER = gql`
   query VotesByVoter($voter: String!) {
     votes(where: { voter: $voter }, first: 1000) {
