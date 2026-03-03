@@ -77,4 +77,5 @@ export interface NonVoter {
   totalStake: string;
   ensName: string | null;
   ensAvatar: string | null;
+  delegatorOverrides: DelegatorOverride[];
 }
