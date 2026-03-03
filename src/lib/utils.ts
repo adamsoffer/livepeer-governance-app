@@ -14,8 +14,9 @@ export function truncateAddress(address: string): string {
 }
 
 // Approximate current L1 block number
-const REFERENCE_BLOCK = 19500000;
-const REFERENCE_TIMESTAMP = 1711296000;
+// Block 24500000 mined on Feb 20 2026 18:57:23 UTC
+const REFERENCE_BLOCK = 24500000;
+const REFERENCE_TIMESTAMP = 1771631843;
 const SECONDS_PER_BLOCK = 12;
 
 function estimateCurrentBlock(): number {
@@ -28,6 +29,22 @@ export function isPollActive(poll: Poll): boolean {
   const endBlock = parseInt(poll.endBlock);
   const currentBlock = estimateCurrentBlock();
   return currentBlock < endBlock;
+}
+
+export function estimateTimeRemaining(poll: Poll): string | null {
+  const endBlock = parseInt(poll.endBlock);
+  const currentBlock = estimateCurrentBlock();
+  if (currentBlock >= endBlock) return null;
+
+  const remainingSeconds = (endBlock - currentBlock) * SECONDS_PER_BLOCK;
+  const days = Math.floor(remainingSeconds / 86400);
+  const hours = Math.floor((remainingSeconds % 86400) / 3600);
+  const minutes = Math.floor((remainingSeconds % 3600) / 60);
+
+  if (days > 1) return `~${days} days`;
+  if (days === 1) return `~1 day, ${hours}h`;
+  if (hours > 0) return `~${hours}h ${minutes}m`;
+  return `~${minutes}m`;
 }
 
 /**
