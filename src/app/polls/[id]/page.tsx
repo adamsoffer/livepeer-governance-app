@@ -169,12 +169,43 @@ async function EnrichedNonVoterTable({ poll }: { poll: Poll }) {
     (t) => !voterSet.has(t.id.toLowerCase())
   );
 
-  const nonVoters: NonVoter[] = nonVoterTranscoders.map((t) => ({
-    address: t.id,
-    totalStake: t.totalStake,
-    ensName: null,
-    ensAvatar: null,
-  }));
+  // Find delegator voters (non-transcoder voters) and get their delegates
+  const delegatorVoters = poll.votes.filter((v) => !v.registeredTranscoder);
+  const delegatorDelegates = await getDelegatorDelegates(
+    delegatorVoters.map((v) => v.voter)
+  );
+
+  // Build a map of nonvoting orchestrator -> delegator overrides
+  const nonVoterSet = new Set(
+    nonVoterTranscoders.map((t) => t.id.toLowerCase())
+  );
+  const overridesByOrch = new Map<string, typeof poll.votes>();
+  for (const vote of delegatorVoters) {
+    const delegate = delegatorDelegates.get(vote.voter.toLowerCase());
+    if (delegate && nonVoterSet.has(delegate)) {
+      const existing = overridesByOrch.get(delegate) ?? [];
+      existing.push(vote);
+      overridesByOrch.set(delegate, existing);
+    }
+  }
+
+  const nonVoters: NonVoter[] = nonVoterTranscoders.map((t) => {
+    const overrides = overridesByOrch.get(t.id.toLowerCase()) ?? [];
+    return {
+      address: t.id,
+      totalStake: t.totalStake,
+      ensName: null,
+      ensAvatar: null,
+      delegatorOverrides: overrides.map((o) => ({
+        voter: o.voter,
+        ensName: null,
+        ensAvatar: null,
+        choiceID: o.choiceID,
+        voteStake: o.voteStake,
+        timestamp: o.timestamp,
+      })),
+    };
+  });
 
   return <NonVoterTable nonVoters={nonVoters} />;
 }
