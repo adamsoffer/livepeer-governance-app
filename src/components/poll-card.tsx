@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { StatusBadge } from "@/components/ui/badge";
 import { VoteResultsBar } from "@/components/vote-results-bar";
-import { formatStake } from "@/lib/utils";
-import type { PollStatus, ProposalMetadata } from "@/lib/graphql/types";
+import { formatStake, estimateTimeRemaining } from "@/lib/utils";
+import type { Poll, PollStatus, ProposalMetadata } from "@/lib/graphql/types";
 
 export function PollCard({
   id,
@@ -18,6 +18,7 @@ export function PollCard({
   quorumMet,
   yesVoters,
   noVoters,
+  poll,
 }: {
   id: string;
   metadata: ProposalMetadata | null;
@@ -32,6 +33,7 @@ export function PollCard({
   quorumMet: boolean;
   yesVoters: number;
   noVoters: number;
+  poll: Poll;
 }) {
   const title = metadata
     ? metadata.lip
@@ -48,7 +50,14 @@ export function PollCard({
         <h2 className="text-[15px] font-medium text-text-primary group-hover:text-white transition-colors line-clamp-1">
           {title}
         </h2>
-        <StatusBadge status={status} />
+        <div className="flex items-center gap-2 shrink-0">
+          {status === "active" && (
+            <span className="text-[11px] text-text-tertiary whitespace-nowrap">
+              Ends in {estimateTimeRemaining(poll)}
+            </span>
+          )}
+          <StatusBadge status={status} />
+        </div>
       </div>
 
       <VoteResultsBar

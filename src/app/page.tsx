@@ -109,6 +109,7 @@ export default async function Home() {
               <PollCard
                 key={poll.id}
                 id={poll.id}
+                poll={poll}
                 metadata={meta}
                 status={status}
                 yesPercentage={yesPercentage}

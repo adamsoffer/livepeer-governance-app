@@ -17,6 +17,7 @@ import {
   computeQuorum,
   formatStake,
   isPollActive,
+  estimateTimeRemaining,
 } from "@/lib/utils";
 import { LivepeerLogo } from "@/components/livepeer-logo";
 import { StatusBadge } from "@/components/ui/badge";
@@ -290,8 +291,13 @@ export default async function PollDetailPage({
       <main className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
         {/* Title + Meta */}
         <div className="mb-6">
-          <div className="mb-2">
+          <div className="mb-2 flex items-center gap-2">
             <StatusBadge status={status} />
+            {status === "active" && (
+              <span className="text-[11px] text-text-tertiary">
+                Ends in {estimateTimeRemaining(poll)}
+              </span>
+            )}
           </div>
           <h1 className="text-xl font-semibold text-text-primary mb-2">
             {title}
